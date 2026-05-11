@@ -1,0 +1,6 @@
+{
+  "name": "chess-coach",
+  "version": "1.0.0",
+  "description": "Chess coach with Groq AI commentary",
+  "private": true
+}
