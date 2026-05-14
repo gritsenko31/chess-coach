@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -38,7 +39,6 @@ header span{color:var(--text-muted);font-size:13px}
 .field label{display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px}
 select,input[type=password]{width:100%;background:#0d1117;border:1px solid var(--border);border-radius:7px;color:var(--text);padding:6px 9px;font-size:13px;outline:none;font-family:inherit}
 select:focus,input:focus{border-color:#388bfd}
-.hint{font-size:11px;color:var(--text-faint);margin-top:3px}
 .btn{display:block;width:100%;padding:8px;border-radius:7px;border:none;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:7px;font-family:inherit;transition:opacity .15s}
 .btn:last-child{margin-bottom:0}
 .btn:hover{opacity:.82}
@@ -93,7 +93,6 @@ select:focus,input:focus{border-color:#388bfd}
 <h1>Chess Coach</h1>
 <span>Built-in engine &middot; Sherlock mode</span>
 </header>
-
 <div class="layout">
 <div class="col">
 <div class="card">
@@ -107,7 +106,6 @@ select:focus,input:focus{border-color:#388bfd}
 </select>
 </div>
 </div>
-
 <div class="card">
 <h2>Engine</h2>
 <div class="field">
@@ -124,7 +122,6 @@ select:focus,input:focus{border-color:#388bfd}
 </select>
 </div>
 </div>
-
 <div class="card">
 <h2>Controls</h2>
 <button class="btn btn-g" id="btnNew">&#9654; New Game</button>
@@ -133,7 +130,6 @@ select:focus,input:focus{border-color:#388bfd}
 <div id="statusBar" class="ready">Your move</div>
 </div>
 </div>
-
 <div class="board-center">
 <div class="board-outer">
 <div class="rank-col" id="rankCol"></div>
@@ -145,7 +141,6 @@ select:focus,input:focus{border-color:#388bfd}
 </div>
 </div>
 </div>
-
 <div class="col">
 <div class="card">
 <h2>Coach Comment</h2>
@@ -165,79 +160,43 @@ select:focus,input:focus{border-color:#388bfd}
 </div>
 </div>
 </div>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
 <script>
 const SUPA_URL = 'https://eyfmbgytvycawomzdhrz.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5Zm1iZ3l0dnljYXdvbXpkaHJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3ODU5NjEsImV4cCI6MjA5NDM2MTk2MX0.4e43hBU68oBtkfe8Ac-5OQkPhcxGiZjEvtqNDniJfPU';
-const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
-
+const supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
 let currentGameId = null;
 let moveNumber = 0;
 let gameFinishedSaved = false;
-
 async function saveGameStart() {
   currentGameId = null;
   moveNumber = 0;
   gameFinishedSaved = false;
+  console.log('saveGameStart called');
   try {
-    const { data, error } = await supa
-      .from('games')
-      .insert({
-        player_color: myColor,
-        result: 'ongoing',
-        pgn: '',
-        moves_count: 0
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('saveGameStart error:', error);
-      return;
-    }
+    const { data, error } = await supa.from('games').insert({ player_color: myColor, result: 'ongoing', pgn: '', moves_count: 0 }).select().single();
+    if (error) { console.error('saveGameStart error:', error); return; }
     currentGameId = data.id;
-  } catch (e) {
-    console.error('saveGameStart exception:', e);
-  }
+    console.log('game saved', currentGameId);
+  } catch (e) { console.error('saveGameStart exception:', e); }
 }
-
 async function saveMove(mv, evalScore, bestMove, aiComment) {
   if (!currentGameId || !mv) return;
   moveNumber++;
+  console.log('saveMove called', mv.san);
   try {
-    const { error } = await supa.from('moves').insert({
-      game_id: currentGameId,
-      move_number: moveNumber,
-      move_san: mv.san,
-      eval_score: evalScore,
-      best_move: bestMove || null,
-      ai_comment: aiComment || ''
-    });
-    if (error) console.error('saveMove error:', error);
-  } catch (e) {
-    console.error('saveMove exception:', e);
-  }
+    const { error } = await supa.from('moves').insert({ game_id: currentGameId, move_number: moveNumber, move_san: mv.san, eval_score: evalScore, best_move: bestMove || null, ai_comment: aiComment || '' });
+    if (error) console.error('saveMove error:', error); else console.log('move saved');
+  } catch (e) { console.error('saveMove exception:', e); }
 }
-
 async function saveGameEnd(result) {
   if (!currentGameId || gameFinishedSaved) return;
   gameFinishedSaved = true;
   try {
-    const { error } = await supa
-      .from('games')
-      .update({
-        result,
-        pgn: game.pgn(),
-        moves_count: moveNumber
-      })
-      .eq('id', currentGameId);
-    if (error) console.error('saveGameEnd error:', error);
-  } catch (e) {
-    console.error('saveGameEnd exception:', e);
-  }
+    const { error } = await supa.from('games').update({ result, pgn: game.pgn(), moves_count: moveNumber }).eq('id', currentGameId);
+    if (error) console.error('saveGameEnd error:', error); else console.log('game ended', result);
+  } catch (e) { console.error('saveGameEnd exception:', e); }
 }
-
 const ENGINE = (function(){
 const VAL = {p:100,n:320,b:330,r:500,q:900,k:20000};
 const PST = {
@@ -248,243 +207,31 @@ r:[0,0,0,0,0,0,0,0,5,10,10,10,10,10,10,5,-5,0,0,0,0,0,0,-5,-5,0,0,0,0,0,0,-5,-5,
 q:[-20,-10,-10,-5,-5,-10,-10,-20,-10,0,0,0,0,0,0,-10,-10,0,5,5,5,5,0,-10,-5,0,5,5,5,5,0,-5,0,0,5,5,5,5,0,-5,-10,5,5,5,5,5,0,-10,-10,0,5,0,0,0,0,-10,-20,-10,-10,-5,-5,-10,-10,-20],
 k:[-30,-40,-40,-50,-50,-40,-40,-30,-30,-40,-40,-50,-50,-40,-40,-30,-30,-40,-40,-50,-50,-40,-40,-30,-30,-40,-40,-50,-50,-40,-40,-30,-20,-30,-30,-40,-40,-30,-30,-20,-10,-20,-20,-20,-20,-20,-20,-10,20,20,0,0,0,0,20,20,20,30,10,0,0,10,30,20]
 };
-function evalBoard(g){
-let s=0;
-const b=g.board();
-for(let r=0;r<8;r++) for(let f=0;f<8;f++){
-const p=b[r][f]; if(!p) continue;
-const i=p.color==='w'?r*8+f:(7-r)*8+f;
-const v=VAL[p.type]+PST[p.type][i];
-s+=p.color==='w'?v:-v;
-}
-return s;
-}
-function ab(g,d,a,b,mx){
-if(d===0||g.game_over()) return evalBoard(g);
-const ms=g.moves();
-if(mx){let bv=-Infinity;for(const m of ms){g.move(m);bv=Math.max(bv,ab(g,d-1,a,b,false));g.undo();a=Math.max(a,bv);if(b<=a)break;}return bv;}
-else {let bv=Infinity;for(const m of ms){g.move(m);bv=Math.min(bv,ab(g,d-1,a,b,true));g.undo();b=Math.min(b,bv);if(b<=a)break;}return bv;}
-}
-function best(g,d){
-const ms=g.moves({verbose:true});
-if(!ms.length) return null;
-const iw=g.turn()==='w';
-let bv=iw?-Infinity:Infinity,bm=ms[0];
-ms.sort(()=>Math.random()-.5);
-for(const m of ms){g.move(m);const v=ab(g,d-1,-Infinity,Infinity,!iw);g.undo();if(iw?v>bv:v<bv){bv=v;bm=m;}}
-return {move:bm,score:bv};
-}
-function quickEval(g,d){
-if(g.game_over()) return {score:evalBoard(g),best:null};
-const ms=g.moves({verbose:true});
-if(!ms.length) return {score:evalBoard(g),best:null};
-const iw=g.turn()==='w';
-let bv=iw?-Infinity:Infinity,bm=ms[0];
-ms.sort(()=>Math.random()-.5);
-const qd=Math.min(d,2);
-for(const m of ms){g.move(m);const v=ab(g,qd-1,-Infinity,Infinity,!iw);g.undo();if(iw?v>bv:v<bv){bv=v;bm=m;}}
-return {score:bv,best:bm?bm.from+bm.to:null};
-}
+function evalBoard(g){let s=0;const b=g.board();for(let r=0;r<8;r++) for(let f=0;f<8;f++){const p=b[r][f]; if(!p) continue;const i=p.color==='w'?r*8+f:(7-r)*8+f;const v=VAL[p.type]+PST[p.type][i];s+=p.color==='w'?v:-v;}return s;}
+function ab(g,d,a,b,mx){if(d===0||g.game_over()) return evalBoard(g);const ms=g.moves();if(mx){let bv=-Infinity;for(const m of ms){g.move(m);bv=Math.max(bv,ab(g,d-1,a,b,false));g.undo();a=Math.max(a,bv);if(b<=a)break;}return bv;}else{let bv=Infinity;for(const m of ms){g.move(m);bv=Math.min(bv,ab(g,d-1,a,b,true));g.undo();b=Math.min(b,bv);if(b<=a)break;}return bv;}}
+function best(g,d){const ms=g.moves({verbose:true});if(!ms.length) return null;const iw=g.turn()==='w';let bv=iw?-Infinity:Infinity,bm=ms[0];ms.sort(()=>Math.random()-.5);for(const m of ms){g.move(m);const v=ab(g,d-1,-Infinity,Infinity,!iw);g.undo();if(iw?v>bv:v<bv){bv=v;bm=m;}}return {move:bm,score:bv};}
+function quickEval(g,d){if(g.game_over()) return {score:evalBoard(g),best:null};const ms=g.moves({verbose:true});if(!ms.length) return {score:evalBoard(g),best:null};const iw=g.turn()==='w';let bv=iw?-Infinity:Infinity,bm=ms[0];ms.sort(()=>Math.random()-.5);const qd=Math.min(d,2);for(const m of ms){g.move(m);const v=ab(g,qd-1,-Infinity,Infinity,!iw);g.undo();if(iw?v>bv:v<bv){bv=v;bm=m;}}return {score:bv,best:bm?bm.from+bm.to:null};}
 return {best,quickEval,evalBoard};
 })();
-
 const GLYPH={p:'♟',n:'♞',b:'♝',r:'♜',q:'♛',k:'♚'};
 let game=new Chess(),orient='w',myColor='w',selSq=null,tgts=[],lastSq=[],busy=false;
-
-function renderBoard(){
-const boardEl=document.getElementById('board');
-boardEl.innerHTML='';
-const files=orient==='w'?['a','b','c','d','e','f','g','h']:['h','g','f','e','d','c','b','a'];
-const ranks=orient==='w'?[8,7,6,5,4,3,2,1]:[1,2,3,4,5,6,7,8];
-const rc=document.getElementById('rankCol');
-rc.innerHTML='';
-ranks.forEach(r=>{const s=document.createElement('span');s.textContent=r;rc.appendChild(s);});
-const fr=document.getElementById('fileRow');
-fr.innerHTML='';
-files.forEach(f=>{const s=document.createElement('span');s.textContent=f;fr.appendChild(s);});
-for(const rank of ranks){
-for(const file of files){
-const sq=file+rank;
-const fi=file.charCodeAt(0)-97;
-const light=(fi+rank)%2===0;
-const div=document.createElement('div');
-div.className='sq '+(light?'light':'dark');
-div.dataset.sq=sq;
-if(sq===selSq) div.classList.add('sel');
-if(lastSq.includes(sq)) div.classList.add('lm');
-if(tgts.includes(sq)) div.classList.add(game.get(sq)?'cap':'dot');
-const p=game.get(sq);
-if(p){
-const pd=document.createElement('div');
-pd.className='piece '+(p.color==='w'?'white':'black');
-pd.textContent=GLYPH[p.type];
-div.appendChild(pd);
-}
-div.addEventListener('click',onSqClick);
-boardEl.appendChild(div);
-}
-}
-updateHistory();
-}
-
-function onSqClick(e){
-if(busy||game.game_over()||game.turn()!==myColor) return;
-const sq=e.currentTarget.dataset.sq;
-if(selSq){
-const legal=game.moves({square:selSq,verbose:true});
-const mv=legal.find(m=>m.to===sq);
-if(mv){playerMove(selSq,sq);return;}
-}
-const p=game.get(sq);
-if(p&&p.color===myColor){selSq=sq;tgts=game.moves({square:sq,verbose:true}).map(m=>m.to);}
-else{selSq=null;tgts=[];}
-renderBoard();
-}
-
-async function playerMove(from,to){
-busy=true;selSq=null;tgts=[];
-setStatus('Analyzing…','thinking');
-const depth=parseInt(document.getElementById('botDepth').value);
-const beforeScore=ENGINE.evalBoard(game);
-const beforeInfo=ENGINE.quickEval(game,depth);
-const fenBefore=game.fen();
-const mv=game.move({from,to,promotion:'q'});
-if(!mv){busy=false;renderBoard();return;}
-lastSq=[from,to];
-renderBoard();
-const afterScore=ENGINE.evalBoard(game);
-const fenAfter=game.fen();
-const q=classify(beforeScore,afterScore,mv.color);
-setPill(q);
-document.getElementById('eBefore').textContent=fmtCp(beforeScore,mv.color);
-document.getElementById('eAfter').textContent=fmtCp(afterScore,mv.color);
-document.getElementById('eBest').textContent=beforeInfo.best||'—';
-setCoach('Asking coach…',true);
-try{
-const r=await groqComment({fenBefore,fenAfter,mv,beforeScore,afterScore,q,bestMove:beforeInfo.best});
-setCoach(r.text,false);
-document.getElementById('eModel').textContent=r.model;
-await saveMove(mv, afterScore, beforeInfo.best, r.text);
-}catch(err){
-const txt=tplComment(mv,q,beforeInfo.best);
-setCoach(txt,false);
-document.getElementById('eModel').textContent='template';
-await saveMove(mv, afterScore, beforeInfo.best, txt);
-}
-busy=false;
-if(!game.game_over()&&game.turn()!==myColor){setStatus('Bot thinking…','thinking');setTimeout(botMove,80);}
-else updateStatusMsg();
-}
-
-function botMove(){
-if(game.game_over()) return;
-const depth=parseInt(document.getElementById('botDepth').value);
-const r=ENGINE.best(game,depth);
-if(!r){updateStatusMsg();return;}
-const mv=game.move(r.move);
-if(mv) lastSq=[mv.from,mv.to];
-renderBoard();
-updateStatusMsg();
-}
-
-function fmtCp(cp,col){
-let v=cp/100;if(col==='b')v=-v;
-return(v>=0?'+':'')+v.toFixed(2);
-}
-function classify(b,a,col){
-const d=col==='w'?a-b:b-a;
-if(d>=80) return{txt:'Excellent!',cls:'p-exc',ic:'✨'};
-if(d>=10) return{txt:'Good',cls:'p-good',ic:'✅'};
-if(d>-30) return{txt:'OK',cls:'p-ok',ic:'🟡'};
-if(d>-100) return{txt:'Inaccuracy',cls:'p-inacc',ic:'⚠️'};
-if(d>-250) return{txt:'Mistake',cls:'p-miss',ic:'❌'};
-return{txt:'Blunder',cls:'p-blund',ic:'💀'};
-}
-
-async function groqComment({fenAfter,mv,beforeScore,afterScore,q,bestMove}){
-const model=document.getElementById('modelSel').value;
-const pgn=game.pgn()||'Game just started.';
-const prompt='Move: '+mv.san+'\nQuality: '+q.txt+'\nFEN: '+fenAfter+'\nScore before: '+beforeScore+'\nScore after: '+afterScore+'\nBest move: '+(bestMove||'unknown')+'\nFull game PGN so far:\n'+pgn+'\n\nComment on this move in 2-3 short sentences. Be sharp and dry like a brilliant British detective. Reference the game context if relevant. Call the player Watson occasionally. No numbers. Plain text only.';
-const res=await fetch('/api/chat',{
-method:'POST',
-headers:{'Content-Type':'application/json'},
-body:JSON.stringify({
-model,
-temperature:0.45,
-max_tokens:160,
-messages:[
-{role:'system',content:'You are a chess commentator with the personality of a brilliant dry British detective. Sharp, slightly arrogant, short punchy sentences. You deduce, you do not explain. Address the player as Watson occasionally.'},
-{role:'user',content:prompt}
-]
-})
-});
-if(!res.ok) throw new Error(res.status);
-const text=((await res.json()).choices?.[0]?.message?.content||'').trim();
-return{text,model};
-}
-
-function tplComment(mv,q,best){
-const b=best||'something more sensible';
-if(q.txt==='Excellent!') return mv.san+'. Finally. You saw what the position demanded. Well done, Watson.';
-if(q.txt==='Good') return mv.san+'. Competent. The plan is clear and correct. I expected nothing less.';
-if(q.txt==='OK') return mv.san+'. Adequate. Though '+b+' was the more logical deduction here.';
-if(q.txt==='Inaccuracy') return mv.san+'. You missed something. '+b+' followed directly from the position.';
-if(q.txt==='Mistake') return mv.san+'. A mistake, Watson. Your opponent will not be so generous as to ignore it.';
-return mv.san+'. A blunder. '+b+' was obvious. The position made no attempt to hide it.';
-}
-
+function renderBoard(){const boardEl=document.getElementById('board');boardEl.innerHTML='';const files=orient==='w'?['a','b','c','d','e','f','g','h']:['h','g','f','e','d','c','b','a'];const ranks=orient==='w'?[8,7,6,5,4,3,2,1]:[1,2,3,4,5,6,7,8];const rc=document.getElementById('rankCol');rc.innerHTML='';ranks.forEach(r=>{const s=document.createElement('span');s.textContent=r;rc.appendChild(s);});const fr=document.getElementById('fileRow');fr.innerHTML='';files.forEach(f=>{const s=document.createElement('span');s.textContent=f;fr.appendChild(s);});for(const rank of ranks){for(const file of files){const sq=file+rank;const fi=file.charCodeAt(0)-97;const light=(fi+rank)%2===0;const div=document.createElement('div');div.className='sq '+(light?'light':'dark');div.dataset.sq=sq;if(sq===selSq) div.classList.add('sel');if(lastSq.includes(sq)) div.classList.add('lm');if(tgts.includes(sq)) div.classList.add(game.get(sq)?'cap':'dot');const p=game.get(sq);if(p){const pd=document.createElement('div');pd.className='piece '+(p.color==='w'?'white':'black');pd.textContent=GLYPH[p.type];div.appendChild(pd);}div.addEventListener('click',onSqClick);boardEl.appendChild(div);}}updateHistory();}
+function onSqClick(e){if(busy||game.game_over()||game.turn()!==myColor) return;const sq=e.currentTarget.dataset.sq;if(selSq){const legal=game.moves({square:selSq,verbose:true});const mv=legal.find(m=>m.to===sq);if(mv){playerMove(selSq,sq);return;}}const p=game.get(sq);if(p&&p.color===myColor){selSq=sq;tgts=game.moves({square:sq,verbose:true}).map(m=>m.to);}else{selSq=null;tgts=[];}renderBoard();}
+async function playerMove(from,to){busy=true;selSq=null;tgts=[];setStatus('Analyzing…','thinking');const depth=parseInt(document.getElementById('botDepth').value);const beforeScore=ENGINE.evalBoard(game);const beforeInfo=ENGINE.quickEval(game,depth);const fenBefore=game.fen();const mv=game.move({from,to,promotion:'q'});if(!mv){busy=false;renderBoard();return;}lastSq=[from,to];renderBoard();const afterScore=ENGINE.evalBoard(game);const fenAfter=game.fen();const q=classify(beforeScore,afterScore,mv.color);setPill(q);document.getElementById('eBefore').textContent=fmtCp(beforeScore,mv.color);document.getElementById('eAfter').textContent=fmtCp(afterScore,mv.color);document.getElementById('eBest').textContent=beforeInfo.best||'—';setCoach('Asking coach…',true);try{const r=await groqComment({fenBefore,fenAfter,mv,beforeScore,afterScore,q,bestMove:beforeInfo.best});setCoach(r.text,false);document.getElementById('eModel').textContent=r.model;await saveMove(mv, afterScore, beforeInfo.best, r.text);}catch(err){const txt=tplComment(mv,q,beforeInfo.best);setCoach(txt,false);document.getElementById('eModel').textContent='template';await saveMove(mv, afterScore, beforeInfo.best, txt);}busy=false;if(!game.game_over()&&game.turn()!==myColor){setStatus('Bot thinking…','thinking');setTimeout(botMove,80);}else updateStatusMsg();}
+function botMove(){if(game.game_over()) return;const depth=parseInt(document.getElementById('botDepth').value);const r=ENGINE.best(game,depth);if(!r){updateStatusMsg();return;}const mv=game.move(r.move);if(mv) lastSq=[mv.from,mv.to];renderBoard();updateStatusMsg();}
+function fmtCp(cp,col){let v=cp/100;if(col==='b')v=-v;return(v>=0?'+':'')+v.toFixed(2);}
+function classify(b,a,col){const d=col==='w'?a-b:b-a;if(d>=80) return{txt:'Excellent!',cls:'p-exc',ic:'✨'};if(d>=10) return{txt:'Good',cls:'p-good',ic:'✅'};if(d>-30) return{txt:'OK',cls:'p-ok',ic:'🟡'};if(d>-100) return{txt:'Inaccuracy',cls:'p-inacc',ic:'⚠️'};if(d>-250) return{txt:'Mistake',cls:'p-miss',ic:'❌'};return{txt:'Blunder',cls:'p-blund',ic:'💀'};}
+async function groqComment({fenAfter,mv,beforeScore,afterScore,q,bestMove}){const model=document.getElementById('modelSel').value;const pgn=game.pgn()||'Game just started.';const prompt='Move: '+mv.san+'\nQuality: '+q.txt+'\nFEN: '+fenAfter+'\nScore before: '+beforeScore+'\nScore after: '+afterScore+'\nBest move: '+(bestMove||'unknown')+'\nFull game PGN so far:\n'+pgn+'\n\nComment on this move in 2-3 short sentences. Be sharp and dry like a brilliant British detective. Reference the game context if relevant. Call the player Watson occasionally. No numbers. Plain text only.';const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model,temperature:0.45,max_tokens:160,messages:[{role:'system',content:'You are a chess commentator with the personality of a brilliant dry British detective. Sharp, slightly arrogant, short punchy sentences. You deduce, you do not explain. Address the player as Watson occasionally.'},{role:'user',content:prompt}]})});if(!res.ok) throw new Error(res.status);const text=((await res.json()).choices?.[0]?.message?.content||'').trim();return{text,model};}
+function tplComment(mv,q,best){const b=best||'something more sensible';if(q.txt==='Excellent!') return mv.san+'. Finally. You saw what the position demanded. Well done, Watson.';if(q.txt==='Good') return mv.san+'. Competent. The plan is clear and correct. I expected nothing less.';if(q.txt==='OK') return mv.san+'. Adequate. Though '+b+' was the more logical deduction here.';if(q.txt==='Inaccuracy') return mv.san+'. You missed something. '+b+' followed directly from the position.';if(q.txt==='Mistake') return mv.san+'. A mistake, Watson. Your opponent will not be so generous as to ignore it.';return mv.san+'. A blunder. '+b+' was obvious. The position made no attempt to hide it.';}
 function setStatus(msg,cls){const el=document.getElementById('statusBar');el.textContent=msg;el.className=cls||'';}
-function updateStatusMsg(){
-if(game.in_checkmate()) {
-  const result = game.turn()===myColor ? 'loss' : 'win';
-  saveGameEnd(result);
-  return setStatus(game.turn()==='w'?'Black wins!':'White wins!','err');
-}
-if(game.in_draw()) {
-  saveGameEnd('draw');
-  return setStatus('Draw!','thinking');
-}
-setStatus(game.turn()===myColor?'Your move':'Bot to move…',game.turn()===myColor?'ready':'thinking');
-}
+function updateStatusMsg(){if(game.in_checkmate()) {const result = game.turn()===myColor ? 'loss' : 'win';saveGameEnd(result);return setStatus(game.turn()==='w'?'Black wins!':'White wins!','err');}if(game.in_draw()) {saveGameEnd('draw');return setStatus('Draw!','thinking');}setStatus(game.turn()===myColor?'Your move':'Bot to move…',game.turn()===myColor?'ready':'thinking');}
 function setPill(q){const el=document.getElementById('pill');el.textContent=q.ic+' '+q.txt;el.className='pill '+q.cls;}
 function setCoach(txt,loading){const el=document.getElementById('coachBox');el.textContent=txt;el.className='coach-box'+(loading?' loading':'');}
-function updateHistory(){
-const h=game.history();
-if(!h.length){document.getElementById('movesBox').textContent='No moves yet.';return;}
-let out='';for(let i=0;i<h.length;i+=2)out+=(Math.floor(i/2)+1)+'. '+h[i]+(h[i+1]?' '+h[i+1]:'')+'\n';
-const el=document.getElementById('movesBox');el.textContent=out;el.scrollTop=el.scrollHeight;
-}
-
-function startGame(){
-game=new Chess();
-myColor=document.getElementById('myColor').value;
-orient=myColor;
-selSq=null;
-tgts=[];
-lastSq=[];
-busy=false;
-setPill({txt:'Waiting',cls:'p-wait',ic:'⏳'});
-setCoach('Make a move to receive coaching.',false);
-['eBefore','eAfter','eBest','eModel'].forEach(id=>document.getElementById(id).textContent='—');
-renderBoard();
-saveGameStart();
-if(myColor==='b'){setStatus('Bot thinking…','thinking');setTimeout(botMove,250);}
-else setStatus('Your move','ready');
-}
-
+function updateHistory(){const h=game.history();if(!h.length){document.getElementById('movesBox').textContent='No moves yet.';return;}let out='';for(let i=0;i<h.length;i+=2)out+=(Math.floor(i/2)+1)+'. '+h[i]+(h[i+1]?' '+h[i+1]:'')+'\n';const el=document.getElementById('movesBox');el.textContent=out;el.scrollTop=el.scrollHeight;}
+function startGame(){game=new Chess();myColor=document.getElementById('myColor').value;orient=myColor;selSq=null;tgts=[];lastSq=[];busy=false;setPill({txt:'Waiting',cls:'p-wait',ic:'⏳'});setCoach('Make a move to receive coaching.',false);['eBefore','eAfter','eBest','eModel'].forEach(id=>document.getElementById(id).textContent='—');renderBoard();saveGameStart();if(myColor==='b'){setStatus('Bot thinking…','thinking');setTimeout(botMove,250);}else setStatus('Your move','ready');}
 document.getElementById('btnNew').addEventListener('click',startGame);
 document.getElementById('btnFlip').addEventListener('click',()=>{orient=orient==='w'?'b':'w';renderBoard();});
-document.getElementById('btnUndo').addEventListener('click',()=>{
-game.undo();
-game.undo();
-lastSq=[];
-selSq=null;
-tgts=[];
-renderBoard();
-setCoach('Move undone.',false);
-setPill({txt:'Waiting',cls:'p-wait',ic:'⏳'});
-updateStatusMsg();
-});
+document.getElementById('btnUndo').addEventListener('click',()=>{game.undo();game.undo();lastSq=[];selSq=null;tgts=[];renderBoard();setCoach('Move undone.',false);setPill({txt:'Waiting',cls:'p-wait',ic:'⏳'});updateStatusMsg();});
 document.getElementById('myColor').addEventListener('change',startGame);
 startGame();
 </script>
